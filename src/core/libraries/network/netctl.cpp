@@ -162,6 +162,8 @@ int PS4_SYSV_ABI sceNetCtlGetInfo(int code, OrbisNetCtlInfo* info) {
     case ORBIS_NET_CTL_INFO_DEVICE:
         info->device = ORBIS_NET_CTL_DEVICE_WIRED;
         break;
+    case ORBIS_NET_CTL_INFO_MTU:
+        info->mtu = 1500; // default value
     case ORBIS_NET_CTL_INFO_LINK:
         info->link = ORBIS_NET_CTL_LINK_DISCONNECTED;
         break;
