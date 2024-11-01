@@ -18,7 +18,7 @@ enum PfsMode : unsigned short {
     Signed = 0x1,
     Is64Bit = 0x2,
     Encrypted = 0x4,
-    UnknownFlagAlwaysSet = 0x8
+    Caseinsensitive = 0x8
 };
 
 struct PSFHeader_ {
