@@ -90,7 +90,7 @@ void Linker::Execute() {
     // Init primary thread.
     Common::SetCurrentThreadName("GAME_MainThread");
     DebugState.AddCurrentThreadToGuestList();
-    Libraries::Kernel::pthreadInitSelfMainThread();
+    ::Libraries::Kernel::pthreadInitSelfMainThread();
     EnsureThreadInitialized(true);
 
     // Start shared library modules
@@ -365,7 +365,7 @@ void Linker::InitTlsForThread(bool is_primary) const {
     void* addr_out{reinterpret_cast<void*>(KernelAllocBase)};
     if (is_primary) {
         const size_t tls_aligned = Common::AlignUp(total_tls_size, 16_KB);
-        const int ret = Libraries::Kernel::sceKernelMapNamedFlexibleMemory(
+        const int ret = ::Libraries::Kernel::sceKernelMapNamedFlexibleMemory(
             &addr_out, tls_aligned, 3, 0, "SceKernelPrimaryTcbTls");
         ASSERT_MSG(ret == 0, "Unable to allocate TLS+TCB for the primary thread");
     } else {
