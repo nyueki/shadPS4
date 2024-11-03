@@ -19,9 +19,6 @@ enum OrbisNpState {
     ORBIS_NP_STATE_SIGNED_IN
 };
 
-using OrbisNpStateCallbackForNpToolkit = PS4_SYSV_ABI void (*)(s32 userId, OrbisNpState state,
-                                                               void* userdata);
-
 constexpr int ORBIS_NP_ONLINEID_MAX_LENGTH = 16;
 
 typedef int OrbisUserServiceUserId;
@@ -37,6 +34,12 @@ struct OrbisNpId {
     u8 opt[8];
     u8 reserved[8];
 };
+
+using OrbisNpStateCallbackForNpToolkit = PS4_SYSV_ABI void (*)(s32 userId, OrbisNpState state,
+                                                               void* userdata);
+
+using OrbisNpStateCallback = PS4_SYSV_ABI void (*)(s32 userId, OrbisNpState state, OrbisNpId* npId,
+                                                   void* userdata);
 
 int PS4_SYSV_ABI Func_EF4378573542A508();
 int PS4_SYSV_ABI _sceNpIpcCreateMemoryFromKernel();
@@ -423,7 +426,7 @@ int PS4_SYSV_ABI sceNpRegisterGamePresenceCallback();
 int PS4_SYSV_ABI sceNpRegisterGamePresenceCallbackA();
 int PS4_SYSV_ABI sceNpRegisterNpReachabilityStateCallback();
 int PS4_SYSV_ABI sceNpRegisterPlusEventCallback();
-int PS4_SYSV_ABI sceNpRegisterStateCallback();
+int PS4_SYSV_ABI sceNpRegisterStateCallback(OrbisNpStateCallback callback, void* userdata);
 int PS4_SYSV_ABI sceNpRegisterStateCallbackA();
 int PS4_SYSV_ABI sceNpServiceClientInit();
 int PS4_SYSV_ABI sceNpServiceClientTerm();

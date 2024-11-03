@@ -871,11 +871,6 @@ int PS4_SYSV_ABI sceNpAsmTerminate() {
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceNpCheckCallback() {
-    LOG_TRACE(Lib_NpManager, "(STUBBED) called");
-    return ORBIS_OK;
-}
-
 int PS4_SYSV_ABI sceNpCheckNpAvailability() {
     LOG_ERROR(Lib_NpManager, "(STUBBED) called");
     return ORBIS_OK;
@@ -1941,13 +1936,30 @@ int PS4_SYSV_ABI sceNpRegisterPlusEventCallback() {
     return ORBIS_OK;
 }
 
-int PS4_SYSV_ABI sceNpRegisterStateCallback() {
+struct NpStateCallback {
+    OrbisNpStateCallback func;
+    void* userdata;
+};
+
+NpStateCallback NpStateCb;
+
+int PS4_SYSV_ABI sceNpRegisterStateCallback(OrbisNpStateCallback callback, void* userdata) {
+    static int id = 0;
     LOG_ERROR(Lib_NpManager, "(STUBBED) called");
-    return ORBIS_OK;
+    NpStateCb.func = callback;
+    NpStateCb.userdata = userdata;
+    return id;
 }
 
 int PS4_SYSV_ABI sceNpRegisterStateCallbackA() {
     LOG_ERROR(Lib_NpManager, "(STUBBED) called");
+    return ORBIS_OK;
+}
+
+int PS4_SYSV_ABI sceNpCheckCallback() {
+    LOG_TRACE(Lib_NpManager, "(STUBBED) called");
+    const auto* linker = Common::Singleton<Core::Linker>::Instance();
+    linker->ExecuteGuest(NpStateCb.func, 1, ORBIS_NP_STATE_SIGNED_OUT, nullptr, NpStateCb.userdata);
     return ORBIS_OK;
 }
 
