@@ -335,6 +335,17 @@ ImageId TextureCache::FindImage(BaseDesc& desc) {
     Image& image = slot_images[image_id];
     image.tick_accessed_last = scheduler.CurrentTick();
 
+    // TMP {
+    LOG_WARNING(Render_Vulkan, "{}:{:x}@[{}x{}:{}_{}:{}_{}:{}]->{:x}@[{}x{}:{}:{}:{}]({:x}_{:x})",
+                int(desc.type), info.guest_address, info.size.width, info.size.height,
+                desc.view_info.range.base.level, info.resources.levels,
+                desc.view_info.range.base.layer, info.resources.layers,
+                vk::to_string(info.pixel_format).c_str(), image.info.guest_address,
+                image.info.size.width, image.info.size.height, image.info.resources.levels,
+                image.info.resources.layers, vk::to_string(image.info.pixel_format).c_str(),
+                image.usage.raw, image.binding.raw);
+    // }
+
     return image_id;
 }
 

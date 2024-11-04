@@ -151,6 +151,10 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
         return;
     }
 
+    // TMP {
+    binding.just_created = 1u;
+    // }
+
     mip_hashes.resize(info.resources.levels);
     ASSERT(info.pixel_format != vk::Format::eUndefined);
     // Here we force `eExtendedUsage` as don't know all image usage cases beforehand. In normal case
