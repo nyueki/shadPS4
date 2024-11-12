@@ -623,8 +623,7 @@ bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, 
     TextureCache::BaseDesc desc{};
     desc.info.guest_address = device_addr;
     desc.info.guest_size_bytes = size;
-    desc.flags = find_flags;
-    const ImageId image_id = texture_cache.FindImage(desc);
+    const ImageId image_id = texture_cache.FindImage(desc, find_flags);
     if (!image_id) {
         return false;
     }

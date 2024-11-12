@@ -257,9 +257,8 @@ ImageId TextureCache::ExpandImage(const ImageInfo& info, ImageId image_id) {
     return new_image_id;
 }
 
-ImageId TextureCache::FindImage(BaseDesc& desc) {
+ImageId TextureCache::FindImage(BaseDesc& desc, FindFlags flags) {
     const auto& info = desc.info;
-    const auto& flags = desc.flags;
 
     if (info.guest_address == 0) [[unlikely]] {
         return NULL_IMAGE_ID;

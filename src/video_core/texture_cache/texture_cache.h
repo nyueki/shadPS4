@@ -55,7 +55,6 @@ public:
         ImageInfo info;
         ImageViewInfo view_info;
         BindingType type{BindingType::Texture};
-        FindFlags flags{};
 
         BaseDesc() = default;
         BaseDesc(BindingType type_, ImageInfo info_, ImageViewInfo view_info_) noexcept
@@ -106,7 +105,7 @@ public:
     void UnmapMemory(VAddr cpu_addr, size_t size);
 
     /// Retrieves the image handle of the image with the provided attributes.
-    [[nodiscard]] ImageId FindImage(BaseDesc& desc);
+    [[nodiscard]] ImageId FindImage(BaseDesc& desc, FindFlags flags = {});
 
     /// Retrieves an image view with the properties of the specified image id.
     [[nodiscard]] ImageView& FindTexture(ImageId image_id, const ImageViewInfo& view_info);
