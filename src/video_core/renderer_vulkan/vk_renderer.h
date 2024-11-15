@@ -22,11 +22,10 @@ class Scheduler;
 class RenderState;
 class GraphicsPipeline;
 
-class Rasterizer {
+class Renderer {
 public:
-    explicit Rasterizer(const Instance& instance, Scheduler& scheduler,
-                        AmdGpu::Liverpool* liverpool);
-    ~Rasterizer();
+    Renderer(const Instance& instance, Scheduler& scheduler, AmdGpu::Liverpool* liverpool);
+    ~Renderer();
 
     [[nodiscard]] VideoCore::TextureCache& GetTextureCache() noexcept {
         return texture_cache;

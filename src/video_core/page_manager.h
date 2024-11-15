@@ -9,14 +9,14 @@
 #include "common/types.h"
 
 namespace Vulkan {
-class Rasterizer;
+class Renderer;
 }
 
 namespace VideoCore {
 
 class PageManager {
 public:
-    explicit PageManager(Vulkan::Rasterizer* rasterizer);
+    explicit PageManager(Vulkan::Renderer* renderer);
     ~PageManager();
 
     /// Register a range of mapped gpu memory.
@@ -31,7 +31,7 @@ public:
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;
-    Vulkan::Rasterizer* rasterizer;
+    Vulkan::Renderer* renderer;
     std::mutex mutex;
     boost::icl::interval_map<VAddr, s32> cached_pages;
 };

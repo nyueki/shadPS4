@@ -6,11 +6,10 @@
 #include "core/memory.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
-#include "video_core/renderer_vulkan/vk_rasterizer.h"
+#include "video_core/renderer_vulkan/vk_renderer.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/texture_cache/image_view.h"
 #include "video_core/texture_cache/texture_cache.h"
-#include "vk_rasterizer.h"
 
 #ifdef MemoryBarrier
 #undef MemoryBarrier
@@ -18,21 +17,20 @@
 
 namespace Vulkan {
 
-Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
-                       AmdGpu::Liverpool* liverpool_)
+Renderer::Renderer(const Instance& instance_, Scheduler& scheduler_, AmdGpu::Liverpool* liverpool_)
     : instance{instance_}, scheduler{scheduler_}, page_manager{this},
       buffer_cache{instance, scheduler, liverpool_, texture_cache, page_manager},
       texture_cache{instance, scheduler, buffer_cache, page_manager}, liverpool{liverpool_},
       memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool} {
     if (!Config::nullGpu()) {
-        liverpool->BindRasterizer(this);
+        liverpool->BindRenderer(this);
     }
-    memory->SetRasterizer(this);
+    memory->SetRenderer(this);
 }
 
-Rasterizer::~Rasterizer() = default;
+Renderer::~Renderer() = default;
 
-void Rasterizer::CpSync() {
+void Renderer::CpSync() {
     scheduler.EndRendering();
     auto cmdbuf = scheduler.CommandBuffer();
 
@@ -45,7 +43,7 @@ void Rasterizer::CpSync() {
                            vk::DependencyFlagBits::eByRegion, ib_barrier, {}, {});
 }
 
-bool Rasterizer::FilterDraw() {
+bool Renderer::FilterDraw() {
     const auto& regs = liverpool->regs;
     // Tessellation is unsupported so skip the draw to avoid locking up the driver.
     if (regs.primitive_type == AmdGpu::PrimitiveType::PatchPrimitive) {
@@ -75,7 +73,7 @@ bool Rasterizer::FilterDraw() {
     return true;
 }
 
-RenderState Rasterizer::PrepareRenderState(u32 mrt_mask) {
+RenderState Renderer::PrepareRenderState(u32 mrt_mask) {
     // Prefetch color and depth buffers to let texture cache handle possible overlaps with bound
     // textures (e.g. mipgen)
     RenderState state;
@@ -174,7 +172,7 @@ RenderState Rasterizer::PrepareRenderState(u32 mrt_mask) {
     return state;
 }
 
-void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
+void Renderer::Draw(bool is_indexed, u32 index_offset) {
     RENDERER_TRACE;
 
     if (!FilterDraw()) {
@@ -218,7 +216,7 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
     ResetBindings();
 }
 
-void Rasterizer::DrawIndirect(bool is_indexed, VAddr address, u32 offset, u32 size) {
+void Renderer::DrawIndirect(bool is_indexed, VAddr address, u32 offset, u32 size) {
     RENDERER_TRACE;
 
     if (!FilterDraw()) {
@@ -264,7 +262,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr address, u32 offset, u32 si
     ResetBindings();
 }
 
-void Rasterizer::DispatchDirect() {
+void Renderer::DispatchDirect() {
     RENDERER_TRACE;
 
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -285,7 +283,7 @@ void Rasterizer::DispatchDirect() {
     ResetBindings();
 }
 
-void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
+void Renderer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
     RENDERER_TRACE;
 
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -307,18 +305,18 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
     ResetBindings();
 }
 
-u64 Rasterizer::Flush() {
+u64 Renderer::Flush() {
     const u64 current_tick = scheduler.CurrentTick();
     SubmitInfo info{};
     scheduler.Flush(info);
     return current_tick;
 }
 
-void Rasterizer::Finish() {
+void Renderer::Finish() {
     scheduler.Finish();
 }
 
-bool Rasterizer::BindResources(const Pipeline* pipeline) {
+bool Renderer::BindResources(const Pipeline* pipeline) {
     buffer_infos.clear();
     buffer_views.clear();
     image_infos.clear();
@@ -389,9 +387,9 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
     return true;
 }
 
-void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Bindings& binding,
-                             Shader::PushData& push_data, Pipeline::DescriptorWrites& set_writes,
-                             Pipeline::BufferBarriers& buffer_barriers) {
+void Renderer::BindBuffers(const Shader::Info& stage, Shader::Backend::Bindings& binding,
+                           Shader::PushData& push_data, Pipeline::DescriptorWrites& set_writes,
+                           Pipeline::BufferBarriers& buffer_barriers) {
     buffer_bindings.clear();
 
     for (const auto& desc : stage.buffers) {
@@ -517,8 +515,8 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Binding
     }
 }
 
-void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindings& binding,
-                              Pipeline::DescriptorWrites& set_writes) {
+void Renderer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindings& binding,
+                            Pipeline::DescriptorWrites& set_writes) {
     image_bindings.clear();
 
     for (const auto& image_desc : stage.images) {
@@ -633,7 +631,7 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
     }
 }
 
-void Rasterizer::BeginRendering(const GraphicsPipeline& pipeline, RenderState& state) {
+void Renderer::BeginRendering(const GraphicsPipeline& pipeline, RenderState& state) {
     int cb_index = 0;
     for (auto& [image_id, desc] : cb_descs) {
         if (auto& old_img = texture_cache.GetImage(image_id); old_img.binding.needs_rebind) {
@@ -702,7 +700,7 @@ void Rasterizer::BeginRendering(const GraphicsPipeline& pipeline, RenderState& s
     scheduler.BeginRendering(state);
 }
 
-void Rasterizer::Resolve() {
+void Renderer::Resolve() {
     const auto cmdbuf = scheduler.CommandBuffer();
 
     // Read from MRT0, average all samples, and write to MRT1, which is one-sample
@@ -752,33 +750,33 @@ void Rasterizer::Resolve() {
                         vk::ImageLayout::eTransferDstOptimal, region);
 }
 
-void Rasterizer::InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
+void Renderer::InlineData(VAddr address, const void* value, u32 num_bytes, bool is_gds) {
     buffer_cache.InlineData(address, value, num_bytes, is_gds);
 }
 
-u32 Rasterizer::ReadDataFromGds(u32 gds_offset) {
+u32 Renderer::ReadDataFromGds(u32 gds_offset) {
     auto* gds_buf = buffer_cache.GetGdsBuffer();
     u32 value;
     std::memcpy(&value, gds_buf->mapped_data.data() + gds_offset, sizeof(u32));
     return value;
 }
 
-void Rasterizer::InvalidateMemory(VAddr addr, u64 size) {
+void Renderer::InvalidateMemory(VAddr addr, u64 size) {
     buffer_cache.InvalidateMemory(addr, size);
     texture_cache.InvalidateMemory(addr, size);
 }
 
-void Rasterizer::MapMemory(VAddr addr, u64 size) {
+void Renderer::MapMemory(VAddr addr, u64 size) {
     page_manager.OnGpuMap(addr, size);
 }
 
-void Rasterizer::UnmapMemory(VAddr addr, u64 size) {
+void Renderer::UnmapMemory(VAddr addr, u64 size) {
     buffer_cache.InvalidateMemory(addr, size);
     texture_cache.UnmapMemory(addr, size);
     page_manager.OnGpuUnmap(addr, size);
 }
 
-void Rasterizer::UpdateDynamicState(const GraphicsPipeline& pipeline) {
+void Renderer::UpdateDynamicState(const GraphicsPipeline& pipeline) {
     UpdateViewportScissorState();
 
     auto& regs = liverpool->regs;
@@ -833,7 +831,7 @@ void Rasterizer::UpdateDynamicState(const GraphicsPipeline& pipeline) {
     }
 }
 
-void Rasterizer::UpdateViewportScissorState() {
+void Renderer::UpdateViewportScissorState() {
     auto& regs = liverpool->regs;
 
     boost::container::static_vector<vk::Viewport, Liverpool::NumViewports> viewports;
@@ -913,14 +911,14 @@ void Rasterizer::UpdateViewportScissorState() {
     cmdbuf.setScissor(0, scissors);
 }
 
-void Rasterizer::UpdateDepthStencilState() {
+void Renderer::UpdateDepthStencilState() {
     auto& depth = liverpool->regs.depth_control;
 
     const auto cmdbuf = scheduler.CommandBuffer();
     cmdbuf.setDepthBoundsTestEnable(depth.depth_bounds_enable);
 }
 
-void Rasterizer::ScopeMarkerBegin(const std::string_view& str) {
+void Renderer::ScopeMarkerBegin(const std::string_view& str) {
     if (Config::nullGpu() || !Config::vkMarkersEnabled()) {
         return;
     }
@@ -931,7 +929,7 @@ void Rasterizer::ScopeMarkerBegin(const std::string_view& str) {
     });
 }
 
-void Rasterizer::ScopeMarkerEnd() {
+void Renderer::ScopeMarkerEnd() {
     if (Config::nullGpu() || !Config::vkMarkersEnabled()) {
         return;
     }
@@ -940,7 +938,7 @@ void Rasterizer::ScopeMarkerEnd() {
     cmdbuf.endDebugUtilsLabelEXT();
 }
 
-void Rasterizer::ScopedMarkerInsert(const std::string_view& str) {
+void Renderer::ScopedMarkerInsert(const std::string_view& str) {
     if (Config::nullGpu() || !Config::vkMarkersEnabled()) {
         return;
     }
@@ -951,7 +949,7 @@ void Rasterizer::ScopedMarkerInsert(const std::string_view& str) {
     });
 }
 
-void Rasterizer::ScopedMarkerInsertColor(const std::string_view& str, const u32 color) {
+void Renderer::ScopedMarkerInsertColor(const std::string_view& str, const u32 color) {
     if (Config::nullGpu() || !Config::vkMarkersEnabled()) {
         return;
     }

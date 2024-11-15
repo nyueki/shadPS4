@@ -12,7 +12,7 @@
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/amdgpu/pm4_cmds.h"
 #include "video_core/renderdoc.h"
-#include "video_core/renderer_vulkan/vk_rasterizer.h"
+#include "video_core/renderer_vulkan/vk_renderer.h"
 
 namespace AmdGpu {
 
@@ -108,8 +108,8 @@ void Liverpool::Process(std::stop_token stoken) {
         if (submit_done) {
             VideoCore::EndCapture();
 
-            if (rasterizer) {
-                rasterizer->Flush();
+            if (renderer) {
+                renderer->Flush();
             }
             submit_done = false;
         }
@@ -224,8 +224,8 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     const auto marker_sz = nop->header.count.Value() * 2;
                     const std::string_view label{reinterpret_cast<const char*>(&nop->data_block[1]),
                                                  marker_sz};
-                    if (rasterizer) {
-                        rasterizer->ScopeMarkerBegin(label);
+                    if (renderer) {
+                        renderer->ScopeMarkerBegin(label);
                     }
                     break;
                 }
@@ -235,14 +235,14 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                                                  marker_sz};
                     const u32 color = *reinterpret_cast<const u32*>(
                         reinterpret_cast<const u8*>(&nop->data_block[1]) + marker_sz);
-                    if (rasterizer) {
-                        rasterizer->ScopedMarkerInsertColor(label, color);
+                    if (renderer) {
+                        renderer->ScopedMarkerInsertColor(label, color);
                     }
                     break;
                 }
                 case PM4CmdNop::PayloadType::DebugMarkerPop: {
-                    if (rasterizer) {
-                        rasterizer->ScopeMarkerEnd();
+                    if (renderer) {
+                        renderer->ScopeMarkerEnd();
                     }
                     break;
                 }
@@ -365,11 +365,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (DebugState.DumpingCurrentReg()) {
                     DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
                 }
-                if (rasterizer) {
+                if (renderer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
-                    rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndex2", cmd_address));
-                    rasterizer->Draw(true);
-                    rasterizer->ScopeMarkerEnd();
+                    renderer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndex2", cmd_address));
+                    renderer->Draw(true);
+                    renderer->ScopeMarkerEnd();
                 }
                 break;
             }
@@ -382,12 +382,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (DebugState.DumpingCurrentReg()) {
                     DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
                 }
-                if (rasterizer) {
+                if (renderer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
-                    rasterizer->ScopeMarkerBegin(
-                        fmt::format("dcb:{}:DrawIndexOffset2", cmd_address));
-                    rasterizer->Draw(true, draw_index_off->index_offset);
-                    rasterizer->ScopeMarkerEnd();
+                    renderer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndexOffset2", cmd_address));
+                    renderer->Draw(true, draw_index_off->index_offset);
+                    renderer->ScopeMarkerEnd();
                 }
                 break;
             }
@@ -398,11 +397,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (DebugState.DumpingCurrentReg()) {
                     DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
                 }
-                if (rasterizer) {
+                if (renderer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
-                    rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndexAuto", cmd_address));
-                    rasterizer->Draw(false);
-                    rasterizer->ScopeMarkerEnd();
+                    renderer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndexAuto", cmd_address));
+                    renderer->Draw(false);
+                    renderer->ScopeMarkerEnd();
                 }
                 break;
             }
@@ -414,11 +413,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (DebugState.DumpingCurrentReg()) {
                     DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
                 }
-                if (rasterizer) {
+                if (renderer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
-                    rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndirect", cmd_address));
-                    rasterizer->DrawIndirect(false, ib_address, offset, size);
-                    rasterizer->ScopeMarkerEnd();
+                    renderer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndirect", cmd_address));
+                    renderer->DrawIndirect(false, ib_address, offset, size);
+                    renderer->ScopeMarkerEnd();
                 }
                 break;
             }
@@ -431,12 +430,12 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 if (DebugState.DumpingCurrentReg()) {
                     DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
                 }
-                if (rasterizer) {
+                if (renderer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
-                    rasterizer->ScopeMarkerBegin(
+                    renderer->ScopeMarkerBegin(
                         fmt::format("dcb:{}:DrawIndexIndirect", cmd_address));
-                    rasterizer->DrawIndirect(true, ib_address, offset, size);
-                    rasterizer->ScopeMarkerEnd();
+                    renderer->DrawIndirect(true, ib_address, offset, size);
+                    renderer->ScopeMarkerEnd();
                 }
                 break;
             }
@@ -450,11 +449,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs,
                                             true);
                 }
-                if (rasterizer && (regs.cs_program.dispatch_initiator & 1)) {
+                if (renderer && (regs.cs_program.dispatch_initiator & 1)) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
-                    rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:Dispatch", cmd_address));
-                    rasterizer->DispatchDirect();
-                    rasterizer->ScopeMarkerEnd();
+                    renderer->ScopeMarkerBegin(fmt::format("dcb:{}:Dispatch", cmd_address));
+                    renderer->DispatchDirect();
+                    renderer->ScopeMarkerEnd();
                 }
                 break;
             }
@@ -468,12 +467,11 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs,
                                             true);
                 }
-                if (rasterizer && (regs.cs_program.dispatch_initiator & 1)) {
+                if (renderer && (regs.cs_program.dispatch_initiator & 1)) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
-                    rasterizer->ScopeMarkerBegin(
-                        fmt::format("dcb:{}:DispatchIndirect", cmd_address));
-                    rasterizer->DispatchIndirect(ib_address, offset, size);
-                    rasterizer->ScopeMarkerEnd();
+                    renderer->ScopeMarkerBegin(fmt::format("dcb:{}:DispatchIndirect", cmd_address));
+                    renderer->DispatchIndirect(ib_address, offset, size);
+                    renderer->ScopeMarkerEnd();
                 }
                 break;
             }
@@ -513,9 +511,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 });
                 if (event_eos->command == PM4CmdEventWriteEos::Command::GdsStore) {
                     ASSERT(event_eos->size == 1);
-                    if (rasterizer) {
-                        rasterizer->Finish();
-                        const u32 value = rasterizer->ReadDataFromGds(event_eos->gds_index);
+                    if (renderer) {
+                        renderer->Finish();
+                        const u32 value = renderer->ReadDataFromGds(event_eos->gds_index);
                         *event_eos->Address() = value;
                     }
                 }
@@ -537,25 +535,23 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     break;
                 }
                 if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
-                    rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32),
-                                           true);
+                    renderer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Gds) {
-                    rasterizer->InlineData(dma_data->dst_addr_lo,
-                                           dma_data->SrcAddress<const void*>(),
-                                           dma_data->NumBytes(), true);
+                    renderer->InlineData(dma_data->dst_addr_lo, dma_data->SrcAddress<const void*>(),
+                                         dma_data->NumBytes(), true);
                 } else if (dma_data->src_sel == DmaDataSrc::Data &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data,
-                                           sizeof(u32), false);
+                    renderer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data,
+                                         sizeof(u32), false);
                 } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
                     LOG_WARNING(Render_Vulkan, "GDS memory read");
                 } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                            dma_data->dst_sel == DmaDataDst::Memory) {
-                    rasterizer->InlineData(dma_data->DstAddress<VAddr>(),
-                                           dma_data->SrcAddress<const void*>(),
-                                           dma_data->NumBytes(), false);
+                    renderer->InlineData(dma_data->DstAddress<VAddr>(),
+                                         dma_data->SrcAddress<const void*>(), dma_data->NumBytes(),
+                                         false);
                 } else {
                     UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
                                     u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -611,8 +607,8 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 break;
             }
             case PM4ItOpcode::PfpSyncMe: {
-                if (rasterizer) {
-                    rasterizer->CpSync();
+                if (renderer) {
+                    renderer->CpSync();
                 }
                 break;
             }
@@ -672,23 +668,23 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, int vqid) {
                 break;
             }
             if (dma_data->src_sel == DmaDataSrc::Data && dma_data->dst_sel == DmaDataDst::Gds) {
-                rasterizer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
+                renderer->InlineData(dma_data->dst_addr_lo, &dma_data->data, sizeof(u32), true);
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Gds) {
-                rasterizer->InlineData(dma_data->dst_addr_lo, dma_data->SrcAddress<const void*>(),
-                                       dma_data->NumBytes(), true);
+                renderer->InlineData(dma_data->dst_addr_lo, dma_data->SrcAddress<const void*>(),
+                                     dma_data->NumBytes(), true);
             } else if (dma_data->src_sel == DmaDataSrc::Data &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                rasterizer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data, sizeof(u32),
-                                       false);
+                renderer->InlineData(dma_data->DstAddress<VAddr>(), &dma_data->data, sizeof(u32),
+                                     false);
             } else if (dma_data->src_sel == DmaDataSrc::Gds &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
                 LOG_WARNING(Render_Vulkan, "GDS memory read");
             } else if (dma_data->src_sel == DmaDataSrc::Memory &&
                        dma_data->dst_sel == DmaDataDst::Memory) {
-                rasterizer->InlineData(dma_data->DstAddress<VAddr>(),
-                                       dma_data->SrcAddress<const void*>(), dma_data->NumBytes(),
-                                       false);
+                renderer->InlineData(dma_data->DstAddress<VAddr>(),
+                                     dma_data->SrcAddress<const void*>(), dma_data->NumBytes(),
+                                     false);
             } else {
                 UNREACHABLE_MSG("WriteData src_sel = {}, dst_sel = {}",
                                 u32(dma_data->src_sel.Value()), u32(dma_data->dst_sel.Value()));
@@ -713,11 +709,11 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, int vqid) {
             if (DebugState.DumpingCurrentReg()) {
                 DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs, true);
             }
-            if (rasterizer && (regs.cs_program.dispatch_initiator & 1)) {
+            if (renderer && (regs.cs_program.dispatch_initiator & 1)) {
                 const auto cmd_address = reinterpret_cast<const void*>(header);
-                rasterizer->ScopeMarkerBegin(fmt::format("acb[{}]:{}:Dispatch", vqid, cmd_address));
-                rasterizer->DispatchDirect();
-                rasterizer->ScopeMarkerEnd();
+                renderer->ScopeMarkerBegin(fmt::format("acb[{}]:{}:Dispatch", vqid, cmd_address));
+                renderer->DispatchDirect();
+                renderer->ScopeMarkerEnd();
             }
             break;
         }

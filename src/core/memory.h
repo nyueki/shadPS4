@@ -13,7 +13,7 @@
 #include "core/libraries/kernel/memory_management.h"
 
 namespace Vulkan {
-class Rasterizer;
+class Renderer;
 }
 
 namespace Libraries::Kernel {
@@ -129,8 +129,8 @@ public:
     explicit MemoryManager();
     ~MemoryManager();
 
-    void SetRasterizer(Vulkan::Rasterizer* rasterizer_) {
-        rasterizer = rasterizer_;
+    void SetRenderer(Vulkan::Renderer* renderer_) {
+        renderer = renderer_;
     }
 
     u64 GetTotalDirectSize() const {
@@ -245,7 +245,7 @@ private:
     size_t total_direct_size{};
     size_t total_flexible_size{};
     size_t flexible_usage{};
-    Vulkan::Rasterizer* rasterizer{};
+    Vulkan::Renderer* renderer{};
 };
 
 using Memory = Common::Singleton<MemoryManager>;

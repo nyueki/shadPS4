@@ -38,12 +38,12 @@ enum SchedulerType {
     CpuFlip,
 };
 
-class Rasterizer;
+class Renderer;
 
-class RendererVulkan {
+class Presenter {
 public:
-    explicit RendererVulkan(Frontend::WindowSDL& window, AmdGpu::Liverpool* liverpool);
-    ~RendererVulkan();
+    Presenter(Frontend::WindowSDL& window, AmdGpu::Liverpool* liverpool);
+    ~Presenter();
 
     Frame* PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& attribute,
                         VAddr cpu_address, bool is_eop) {
@@ -97,7 +97,7 @@ private:
     Scheduler present_scheduler;
     Scheduler flip_scheduler;
     Swapchain swapchain;
-    std::unique_ptr<Rasterizer> rasterizer;
+    std::unique_ptr<Renderer> renderer;
     VideoCore::TextureCache& texture_cache;
     vk::UniqueCommandPool command_pool;
     std::vector<Frame> present_frames;

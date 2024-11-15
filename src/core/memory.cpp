@@ -9,7 +9,7 @@
 #include "core/libraries/kernel/memory_management.h"
 #include "core/memory.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
-#include "video_core/renderer_vulkan/vk_rasterizer.h"
+#include "video_core/renderer_vulkan/vk_renderer.h"
 
 namespace Core {
 
@@ -256,7 +256,7 @@ int MemoryManager::PoolCommit(VAddr virtual_addr, size_t size, MemoryProt prot) 
     new_vma.is_exec = false;
     new_vma.phys_base = 0;
 
-    rasterizer->MapMemory(mapped_addr, size);
+    renderer->MapMemory(mapped_addr, size);
     return ORBIS_OK;
 }
 
@@ -303,7 +303,7 @@ int MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, size_t size, M
 
     if (type == VMAType::Direct) {
         new_vma.phys_base = phys_addr;
-        rasterizer->MapMemory(mapped_addr, size);
+        renderer->MapMemory(mapped_addr, size);
     }
     if (type == VMAType::Flexible) {
         flexible_usage += size;
@@ -358,7 +358,7 @@ void MemoryManager::PoolDecommit(VAddr virtual_addr, size_t size) {
     const auto start_in_vma = virtual_addr - vma_base_addr;
     const auto type = vma_base.type;
 
-    rasterizer->UnmapMemory(virtual_addr, size);
+    renderer->UnmapMemory(virtual_addr, size);
 
     // Mark region as free and attempt to coalesce it with neighbours.
     const auto new_it = CarveVMA(virtual_addr, size);
@@ -395,7 +395,7 @@ void MemoryManager::UnmapMemoryImpl(VAddr virtual_addr, size_t size) {
     const auto type = vma_base.type;
     const bool has_backing = type == VMAType::Direct || type == VMAType::File;
     if (type == VMAType::Direct) {
-        rasterizer->UnmapMemory(virtual_addr, size);
+        renderer->UnmapMemory(virtual_addr, size);
     }
     if (type == VMAType::Flexible) {
         flexible_usage -= size;

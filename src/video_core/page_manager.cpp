@@ -9,7 +9,7 @@
 #include "common/signal_context.h"
 #include "core/signals.h"
 #include "video_core/page_manager.h"
-#include "video_core/renderer_vulkan/vk_rasterizer.h"
+#include "video_core/renderer_vulkan/vk_renderer.h"
 
 #ifndef _WIN64
 #include <sys/mman.h>
@@ -30,7 +30,7 @@ constexpr size_t PAGEBITS = 12;
 
 #if ENABLE_USERFAULTFD
 struct PageManager::Impl {
-    Impl(Vulkan::Rasterizer* rasterizer_) : rasterizer{rasterizer_} {
+    Impl(Vulkan::Renderer* renderer_) : renderer{renderer_} {
         uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
         ASSERT_MSG(uffd != -1, "{}", Common::GetLastErrorMsg());
 
@@ -114,18 +114,18 @@ struct PageManager::Impl {
             // Notify rasterizer about the fault.
             const VAddr addr = msg.arg.pagefault.address;
             const VAddr addr_page = Common::AlignDown(addr, PAGESIZE);
-            rasterizer->InvalidateMemory(addr_page, PAGESIZE);
+            renderer->InvalidateMemory(addr_page, PAGESIZE);
         }
     }
 
-    Vulkan::Rasterizer* rasterizer;
+    Vulkan::Renderer* renderer;
     std::jthread ufd_thread;
     int uffd;
 };
 #else
 struct PageManager::Impl {
-    Impl(Vulkan::Rasterizer* rasterizer_) {
-        rasterizer = rasterizer_;
+    Impl(Vulkan::Renderer* renderer_) {
+        renderer = renderer_;
 
         // Should be called first.
         constexpr auto priority = std::numeric_limits<u32>::min();
@@ -161,19 +161,19 @@ struct PageManager::Impl {
         const bool is_write = Common::IsWriteError(context);
         if (is_write && owned_ranges.find(addr) != owned_ranges.end()) {
             const VAddr addr_aligned = Common::AlignDown(addr, PAGESIZE);
-            rasterizer->InvalidateMemory(addr_aligned, PAGESIZE);
+            renderer->InvalidateMemory(addr_aligned, PAGESIZE);
             return true;
         }
         return false;
     }
 
-    inline static Vulkan::Rasterizer* rasterizer;
+    inline static Vulkan::Renderer* renderer;
     inline static boost::icl::interval_set<VAddr> owned_ranges;
 };
 #endif
 
-PageManager::PageManager(Vulkan::Rasterizer* rasterizer_)
-    : impl{std::make_unique<Impl>(rasterizer_)}, rasterizer{rasterizer_} {}
+PageManager::PageManager(Vulkan::Renderer* renderer_)
+    : impl{std::make_unique<Impl>(renderer_)}, renderer{renderer_} {}
 
 PageManager::~PageManager() = default;
 

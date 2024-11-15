@@ -24,7 +24,7 @@
 #include "video_core/amdgpu/resource.h"
 
 namespace Vulkan {
-class Rasterizer;
+class Renderer;
 }
 
 namespace Libraries::VideoOut {
@@ -1233,8 +1233,8 @@ public:
         vo_port = port;
     }
 
-    void BindRasterizer(Vulkan::Rasterizer* rasterizer_) {
-        rasterizer = rasterizer_;
+    void BindRenderer(Vulkan::Renderer* renderer_) {
+        renderer = renderer_;
     }
 
     void SendCommand(Common::UniqueFunction<void>&& func) {
@@ -1324,7 +1324,7 @@ private:
         static std::array<u8, 48_KB> constants_heap;
     } cblock{};
 
-    Vulkan::Rasterizer* rasterizer{};
+    Vulkan::Renderer* renderer{};
     Libraries::VideoOut::VideoOutPort* vo_port{};
     std::jthread process_thread{};
     std::atomic<u32> num_submits{};
