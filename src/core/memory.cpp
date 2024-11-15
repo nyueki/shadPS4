@@ -268,7 +268,7 @@ int MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, size_t size, M
     // Certain games perform flexible mappings on loop to determine
     // the available flexible memory size. Questionable but we need to handle this.
     if (type == VMAType::Flexible && flexible_usage + size > total_flexible_size) {
-        return SCE_KERNEL_ERROR_ENOMEM;
+        return SCE_KERNEL_ERROR_EACCES;
     }
 
     // When virtual addr is zero, force it to virtual_base. The guest cannot pass Fixed
@@ -294,7 +294,8 @@ int MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, size_t size, M
     *out_addr = impl.Map(mapped_addr, size, alignment, phys_addr, is_exec);
     TRACK_ALLOC(*out_addr, size, "VMEM");
 
-    auto& new_vma = CarveVMA(mapped_addr, size)->second;
+    const auto new_vma_handle = CarveVMA(mapped_addr, size);
+    auto& new_vma = new_vma_handle->second;
     new_vma.disallow_merge = True(flags & MemoryMapFlags::NoCoalesce);
     new_vma.prot = prot;
     new_vma.name = name;
@@ -308,6 +309,7 @@ int MemoryManager::MapMemory(void** out_addr, VAddr virtual_addr, size_t size, M
     if (type == VMAType::Flexible) {
         flexible_usage += size;
     }
+    MergeAdjacent(vma_map, new_vma_handle);
 
     return ORBIS_OK;
 }
