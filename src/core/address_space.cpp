@@ -170,20 +170,13 @@ struct AddressSpace::Impl {
     }
 
     void Unmap(VAddr virtual_addr, size_t size, bool has_backing) {
-        bool ret;
-        if (has_backing) {
-            ret = UnmapViewOfFile2(process, reinterpret_cast<PVOID>(virtual_addr),
-                                   MEM_PRESERVE_PLACEHOLDER);
-        } else {
-            ret = VirtualFreeEx(process, reinterpret_cast<PVOID>(virtual_addr), size,
-                                MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER);
+        // A requested unmap region might contain multiple distinct placeholder mappings
+        const VAddr virtual_end = virtual_addr + size;
+        VAddr base = virtual_addr;
+        while (base < virtual_end) {
+            base = UnmapOneRegion(base, size, has_backing);
         }
-        ASSERT_MSG(ret, "Unmap operation on virtual_addr={:#X} failed: {}", virtual_addr,
-                   Common::GetLastErrorMsg());
-
-        // The unmap call will create a new placeholder region. We need to see if we can coalesce it
-        // with neighbors.
-        JoinRegionsAfterUnmap(virtual_addr, size);
+        ASSERT_MSG(base == virtual_end && size == 0, "Invalid state after unmap");
     }
 
     // The following code is inspired from Dolphin's MemArena
@@ -261,18 +254,32 @@ struct AddressSpace::Impl {
         }
     }
 
-    void JoinRegionsAfterUnmap(VAddr address, size_t size) {
-        // There should be a mapping that matches the request exactly, find it
+    VAddr UnmapOneRegion(VAddr address, size_t& size, bool has_backing) {
+        // There should be a mapping that is contained by the request, find it
         auto it = regions.find(address);
-        ASSERT_MSG(it != regions.end() && it->second.size == size,
+        ASSERT_MSG(it != regions.end() && it->second.size <= size,
                    "Invalid address/size given to unmap.");
         auto& [base, region] = *it;
+
+        const VAddr region_end = region.base + region.size;
         region.is_mapped = false;
+        size -= region.size;
+
+        bool ret;
+        if (has_backing) {
+            ret = UnmapViewOfFile2(process, reinterpret_cast<PVOID>(address),
+                                   MEM_PRESERVE_PLACEHOLDER);
+        } else {
+            ret = VirtualFreeEx(process, reinterpret_cast<PVOID>(address), region.size,
+                                MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER);
+        }
+        ASSERT_MSG(ret, "Unmap operation on virtual_addr={:#X} failed: {}", address,
+                   Common::GetLastErrorMsg());
 
         // Check if a placeholder exists right before us.
         auto it_prev = it != regions.begin() ? std::prev(it) : regions.end();
         if (it_prev != regions.end() && !it_prev->second.is_mapped) {
-            const size_t total_size = it_prev->second.size + size;
+            const size_t total_size = it_prev->second.size + region.size;
             if (!VirtualFreeEx(process, LPVOID(it_prev->first), total_size,
                                MEM_RELEASE | MEM_COALESCE_PLACEHOLDERS)) {
                 UNREACHABLE_MSG("Region coalescing failed: {}", Common::GetLastErrorMsg());
@@ -295,6 +302,8 @@ struct AddressSpace::Impl {
             it->second.size = total_size;
             regions.erase(it_next);
         }
+
+        return region_end;
     }
 
     void Protect(VAddr virtual_addr, size_t size, bool read, bool write, bool execute) {
